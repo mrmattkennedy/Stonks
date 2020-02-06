@@ -19,8 +19,8 @@ class stonks:
             "/index/components/dax"]
         self.companies = []
         self.company_indicator = "/stocks/"
-        self.company_links_path = sys.path[0] + "\\company_links.dat"
-        self.prices_links_path = sys.path[0] + "\\data.csv"
+        self.company_links_path = sys.path[0] + "\\data\\company_links.dat"
+        self.prices_links_path = sys.path[0] + "\\data\\data.csv"
 
         self.price_key = '"price":'
         self.stock_start = "/stock/"
@@ -70,7 +70,7 @@ class stonks:
                 continue
             
         #Print times
-        print("\n\n\nEND:")
+        print("\nEND:")
         print("--- %s seconds ---" % (time.time() - start_time))
 
         #Now save the data
@@ -87,13 +87,15 @@ class stonks:
     def save_data(self, prices):
         #Create file if it doesn't exist
         if not os.path.isfile(self.prices_links_path):
-            open("data.csv", "w").close()
+            open(self.prices_links_path, "w").close()
         
-        with open("data.csv", "r+") as file:
+        with open(self.prices_links_path, "r+") as file:
             data_reader = csv.reader(file, delimiter=',')
             data_contents = [row for row in data_reader]
-            #Step 1: see if company exists. If not, add at the end.
+            
+            #Step 1: See if company exists. If not, add at the end.
             #Step 2: Append data at the right spot in a row.
+            #Step 3: Save data
             for price in prices:
                 company = price[0]
                 cost = price[1]
@@ -126,6 +128,7 @@ class stonks:
                 data_contents[empty_row][company_index] += str(cost)
                 data_contents[empty_row][company_index+1] += str(time)
 
+            #Step 3
             file.seek(0)
             for row in data_contents:
                 line = ",".join(row)
@@ -136,5 +139,7 @@ class stonks:
 if __name__ == '__main__':
     stonks = stonks()
     stonks.start()
-    stonks.get_prices()
+    for i in range(20):
+        stonks.get_prices()
+        print("Iteration %d done!\n\n" %(i+1))
     
