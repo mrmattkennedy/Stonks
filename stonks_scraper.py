@@ -1,5 +1,6 @@
 import os
 import sys
+import csv
 import requests
 import urllib.request
 import time
@@ -19,6 +20,7 @@ class stonks:
         self.companies = []
         self.company_indicator = "/stocks/"
         self.company_links_path = sys.path[0] + "\\company_links.dat"
+        self.prices_links_path = sys.path[0] + "\\data.csv"
 
         self.price_key = '"price":'
         self.stock_start = "/stock/"
@@ -31,7 +33,6 @@ class stonks:
         else:
             #Set the companies list to most up-to-date file
             self.companies = [line.rstrip('\n') for line in open(self.company_links_path, 'r')]
-        print(len(self.companies))
 
     def update_companies_file(self):
         #Get a list of available companies
@@ -54,15 +55,17 @@ class stonks:
         start_time = time.time()
         prices = []
 
-        for company in self.companies[0:20]:
+        for company in self.companies:
             try:
                 company_info = urllib.request.urlopen(self.url+company).read().decode('UTF-8')
                 price_index = company_info.find(self.price_key)
                 price = company_info[price_index + len(self.price_key):company_info.find(",", price_index + len(self.price_key))]
                 price = price.replace('"', "")
+                if not self.is_number(price):
+                    continue
                 stock_name = company[len(self.stock_start) + 1:len(company)-len(self.stock_end)]
                 prices.append([stock_name, price, datetime.datetime.now()])
-                print(price)
+                print(stock_name + ":" + str(price))
             except:
                 continue
             
@@ -73,12 +76,63 @@ class stonks:
         #Now save the data
         save_thread = threading.Thread(target=self.save_data, args=(prices,))
         save_thread.start()
+
+    def is_number(self, s):
+        try:
+            float(s)
+            return True
+        except ValueError:
+            return False
         
     def save_data(self, prices):
-        with open("data.dat", "w") as file:
+        #Create file if it doesn't exist
+        if not os.path.isfile(self.prices_links_path):
+            open("data.csv", "w").close()
+        
+        with open("data.csv", "r+") as file:
+            data_reader = csv.reader(file, delimiter=',')
+            data_contents = [row for row in data_reader]
+            #Step 1: see if company exists. If not, add at the end.
+            #Step 2: Append data at the right spot in a row.
             for price in prices:
-                file.write(price[0] + ":" + str(price[1]) + ", " + str(price[2]) + "\n")
+                company = price[0]
+                cost = price[1]
+                time = price[2]
 
+                #Step 1
+                if len(data_contents) > 0:
+                    if company not in data_contents[0]:
+                        data_contents[0].extend([company, "",])
+                        for row in data_contents[1:]:
+                            row.extend(["", ""])
+                else:
+                    data_contents.append([company, "",])
+                    
+                #Step 2
+                #Get index of company, that column is the price, col+1 is time stamp.
+                #Get first empty value in column and insert there.
+                #CSV is always a rectangle, so no issues on elements not existing.
+                #If get to bottom, add an entire row
+                company_index = data_contents[0].index(company)
+                column_data = data_contents[0][company_index]
+                empty_row = 0
+                try:
+                    while column_data:
+                        empty_row += 1
+                        column_data = data_contents[empty_row][company_index]
+                except IndexError:
+                    data_contents.append(["" for column in data_contents[0]])
+                    
+                data_contents[empty_row][company_index] += str(cost)
+                data_contents[empty_row][company_index+1] += str(time)
+
+            file.seek(0)
+            for row in data_contents:
+                line = ",".join(row)
+                file.write(line + "\n")                    
+            file.truncate()
+
+        return
 if __name__ == '__main__':
     stonks = stonks()
     stonks.start()
