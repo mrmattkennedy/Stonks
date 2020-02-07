@@ -94,13 +94,12 @@ class stonks_visualizer():
         minLabel = minPrice + (priceDiff * 0.2)
         maxLabel = maxPrice + (priceDiff * 0.2)
   
-#        yTicks = [minPrice + (priceDiff * ((x+1)/len(prices))) for x in range(len(set(prices)))]
-        plt.figure(figsize=(9.6,7.2))
+        plt.figure(figsize=(9.6,7.2)).canvas.set_window_title(self.selected_company)
         plt.plot_date(timestamps, prices, '-o', markersize=4)
         if priceDiff != 0:
             plt.ylim((minPrice,maxLabel))
         plt.fill_between(timestamps, prices, color='blue', alpha=0.1)
- #       plt.yticks(yTicks)
+        plt.grid()
         plt.show()
 
     """
