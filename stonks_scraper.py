@@ -64,8 +64,8 @@ class stonks:
                 if not self.is_number(price):
                     continue
                 stock_name = company[len(self.stock_start) + 1:len(company)-len(self.stock_end)]
-                prices.append([stock_name, price, datetime.datetime.now()])
-                print(stock_name + ":" + str(price))
+                prices.append([stock_name, price, datetime.datetime.now().strftime("%m/%d/%Y %H:%M:%S")])
+                #print(stock_name + ":" + str(price))
             except:
                 continue
             
@@ -139,7 +139,7 @@ class stonks:
 if __name__ == '__main__':
     stonks = stonks()
     stonks.start()
-    for i in range(20):
+    for i in range(35):
         stonks.get_prices()
         print("Iteration %d done!\n\n" %(i+1))
     

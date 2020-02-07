@@ -86,9 +86,21 @@ class stonks_visualizer():
         #Need if entry[i] on end for potential blank values
         prices = [float(entry[0]) for entry in pricing_data if entry[0]]
         #Convert from saved string to list of datetime.datetime objects for matplotlib
-        timestamps = dates.date2num([datetime.datetime.strptime(entry[1], "%Y-%m-%d %H:%M:%S.%f") for entry in pricing_data if entry[1]])
+        timestamps = dates.date2num([datetime.datetime.strptime(entry[1], "%m/%d/%Y %H:%M:%S") for entry in pricing_data if entry[1]])
 
-        plt.plot_date(timestamps, prices, '-o')
+        priceDiff = max(prices) - min(prices)
+        minPrice = min(prices)
+        maxPrice = max(prices)
+        minLabel = minPrice + (priceDiff * 0.2)
+        maxLabel = maxPrice + (priceDiff * 0.2)
+  
+#        yTicks = [minPrice + (priceDiff * ((x+1)/len(prices))) for x in range(len(set(prices)))]
+        plt.figure(figsize=(9.6,7.2))
+        plt.plot_date(timestamps, prices, '-o', markersize=4)
+        if priceDiff != 0:
+            plt.ylim((minPrice,maxLabel))
+        plt.fill_between(timestamps, prices, color='blue', alpha=0.1)
+ #       plt.yticks(yTicks)
         plt.show()
 
     """
@@ -102,23 +114,21 @@ class stonks_visualizer():
         self.moreInfoFrame = Frame(self.moreInfoGUI, borderwidth = 2)
         self.moreInfoFrame.grid(column=0,row=0, sticky=(N,W,E,S))
         self.moreInfoFrame.pack(pady = 5, padx = 10)
+
+        #Create options menu
+        self.rangeChoices = ["Day", "Week", "1 Month", "6 Months", "Year"]
+        self.greatestIncreaseRange = StringVar()
+        self.rangeMenu = OptionMenu(self.moreInfoFrame, self.greatestIncreaseRange, *self.rangeChoices)
+        self.rangeMenu.grid(row=1, column=0, sticky=(N,W,E))
+
+        #Create button and input for range and number of companies
+        self.numberCompanies = IntVar()
+        self.greatestIncreaseNumCompanies = Entry(self.moreInfoFrame)
+        self.greatestIncreaseNumCompanies.insert(0, "Number of companies")
+        self.greatestIncreaseNumCompanies.grid(row=0, column=0, columnspan=2, sticky=W)
+        self.greatestIncreaseButton = Button(self.moreInfoFrame, text="Search", command=self.greatest_increase)
+        self.greatestIncreaseButton.grid(row=1, column=1, columnspan=1, sticky=E)
         
-        self.greatestIncreaseRange = IntVar()
-        #Create radios for highest increase
-        self.greatestIncreaseDayRadio = Radiobutton(self.moreInfoFrame, text="Day", variable=self.greatestIncreaseRange, value=0, command=self.greatest_increase)
-        self.greatestIncreaseDayRadio.grid(row=0, column=0, sticky=N)
-        self.greatestIncreaseWeekRadio = Radiobutton(self.moreInfoFrame, text="Week", variable=self.greatestIncreaseRange, value=1, command=self.greatest_increase)
-        self.greatestIncreaseWeekRadio.grid(row=0, column=1, sticky=N)
-        self.greatestIncreaseMonthRadio = Radiobutton(self.moreInfoFrame, text="1 Month", variable=self.greatestIncreaseRange, value=2, command=self.greatest_increase)
-        self.greatestIncreaseMonthRadio.grid(row=0, column=2, sticky=N)
-        self.greatestIncrease6MonthRadio = Radiobutton(self.moreInfoFrame, text="6 Months", variable=self.greatestIncreaseRange, value=3, command=self.greatest_increase)
-        self.greatestIncrease6MonthRadio.grid(row=0, column=3, sticky=N)
-        self.greatestIncreaseYearRadio = Radiobutton(self.moreInfoFrame, text="Year", variable=self.greatestIncreaseRange, value=4, command=self.greatest_increase)
-        self.greatestIncreaseYearRadio.grid(row=0, column=4, sticky=N)
-        
-        self.greatestIncreaseLabel = Label(self.moreInfoFrame, text="hi", borderwidth=2, relief="groove")
-        #self.greatestIncreaseLabel.grid(row=0, column=1, sticky=E)
-        self.greatest_increase()
     """
     Helper function
     Get the 5 highest risers in a given frequency
@@ -133,34 +143,105 @@ class stonks_visualizer():
             return
         
         #Get range for dates
-        earliestDate = ""
-        if self.greatestIncreaseRange.get() == 0: #day
-            earliestDate = datetime.datetime.today().date()
-        elif self.greatestIncreaseRange.get() == 1: #week
-            earliestDate = (datetime.datetime.now() - datetime.timedelta(days=7)).date()
-        elif self.greatestIncreaseRange.get() == 2: #month
+        self.earliestDate = self.get_earliest_date()
+        
+        #Go through every company, and get every value until the day is no longer in range
+        self.numberCompanies = int(self.greatestIncreaseNumCompanies.get())
+        increaseList = self.get_increase_list(self.numberCompanies)
+        
+        #Display table headers
+        tempName = Label(self.moreInfoFrame, text="Company", borderwidth=4, relief="ridge")
+        tempName.grid(row=2, column=0, sticky=(N,S,E,W))
+        tempStart = Label(self.moreInfoFrame, text="Start", borderwidth=4, relief="ridge")
+        tempStart.grid(row=2, column=1, sticky=(N,S,E,W))
+        tempEnd = Label(self.moreInfoFrame, text="End", borderwidth=4, relief="ridge")
+        tempEnd.grid(row=2, column=2, sticky=(N,S,E,W))
+        tempDiff = Label(self.moreInfoFrame, text="Diff", borderwidth=4, relief="ridge")
+        tempDiff.grid(row=2, column=3, sticky=(N,S,E,W))
+
+        #Display info
+        for company in range(len(increaseList)):
+            tempName = Label(self.moreInfoFrame, text=increaseList[company][0], borderwidth=2, relief="groove")
+            tempName.grid(row=company + 3, column=0, sticky=(N,S,E,W))
+            tempStart = Label(self.moreInfoFrame, text=increaseList[company][2], borderwidth=2, relief="groove")
+            tempStart.grid(row=company + 3, column=1, sticky=(N,S,E,W))
+            tempEnd = Label(self.moreInfoFrame, text=increaseList[company][3], borderwidth=2, relief="groove")
+            tempEnd.grid(row=company + 3, column=2, sticky=(N,S,E,W))
+            tempDiff = Label(self.moreInfoFrame, text=increaseList[company][1], borderwidth=2, relief="groove")
+            tempDiff.grid(row=company + 3, column=3, sticky=(N,S,E,W))
+    """
+    Helper function
+    Get the earliest date for the highest increase range
+    """
+    def get_earliest_date(self):
+        if self.greatestIncreaseRange.get() == "Day": #day
+            return datetime.datetime.today().date()
+        elif self.greatestIncreaseRange.get() == "Week": #week
+            return (datetime.datetime.now() - datetime.timedelta(days=7)).date()
+        elif self.greatestIncreaseRange.get() == "1 Month": #month
             today = datetime.datetime.today().date()
             currentMonth = today.month
             currentYear = today.year
             
             if currentMonth == 1:
-                earliestDate = datetime.datetime.today().date().replace(month=12,year=currentYear-1)
+                return datetime.datetime.today().date().replace(month=12,year=currentYear-1)
             else:
-                earliestDate = datetime.datetime.today().date().replace(month=currentMonth-1)
-        elif self.greatestIncreaseRange.get() == 3: #6 months
+                return datetime.datetime.today().date().replace(month=currentMonth-1)
+        elif self.greatestIncreaseRange.get() == "6 Months": #6 months
             today = datetime.datetime.today()
             currentMonth = today.month
             currentYear = today.year
             
-            if currentMonth <= 6:
-                earliestDate = datetime.datetime.today().date().replace(month=12+(currentMonth-6),year=currentYear-1)
+            if currentMonth <= 7:
+                return datetime.datetime.today().date().replace(month=12+(currentMonth-6),year=currentYear-1)
             else:
-                earliestDate = datetime.datetime.today().date().replace(month=currentMonth-6)
-        elif self.greatestIncreaseRange.get() == 4: #year
+                return datetime.datetime.today().date().replace(month=currentMonth-6)
+        elif self.greatestIncreaseRange.get() == "Year": #year
             currentYear = datetime.datetime.today().year
-            earliestDate = datetime.datetime.today().date().replace(year=currentYear-1)
-        
-        #timestamps = dates.date2num([datetime.strptime(entry[1], "%Y-%m-%d %H:%M:%S.%f") for entry in pricing_data if entry[1]])
+            return datetime.datetime.today().date().replace(year=currentYear-1)
+
+        return ""
+
+    """
+    Helper function
+    Get list of greatest increases of stocks in data
+    """
+    def get_increase_list(self, length):
+        retList = []
+        for company in range(0, len(self.data_contents[0]), 2):
             
+            #Get the last recorded price value
+            last_row = len(self.data_contents) - 1
+            empty_row = True
+            
+            while empty_row:
+                if not self.data_contents[last_row][company]:
+                    last_row-=1
+                    continue
+                empty_row = False
+
+            #Get the prices starting at the last recorded price value
+            acceptable_range = True
+            starting_price = -1
+            current_row = last_row
+            ending_price = self.data_contents[last_row][company]
+            
+            while acceptable_range:
+                pastDate = datetime.datetime.strptime(self.data_contents[current_row][company+1], "%m/%d/%Y %H:%M:%S").date()
+                if pastDate >= self.earliestDate and current_row != 1:
+                    starting_price = self.data_contents[current_row][company]
+                    current_row-=1
+                else:
+                    acceptable_range = False
+
+            #Get the price difference and append it
+            increase = round(float(ending_price) - float(starting_price), 2)
+            retList.append([self.data_contents[0][company], increase, round(float(starting_price), 2), round(float(ending_price), 2)])
+
+        #Sort list according to greatest increase
+        retList = sorted(retList, key = lambda x: x[1])
+        return retList[-length:]
+
+        
 visualizer = stonks_visualizer()
 visualizer.gui_initialize()
