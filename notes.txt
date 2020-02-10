@@ -1,0 +1,9 @@
+3 modules to this
+	Scraper pulls data
+	Analyzer looks at data pulled, makes decisions
+	Visualizer...visualizes. Not working real time.
+
+Flow:
+Scraper pulls, then wakes up analyzer
+	Pros to waking up/maintaing process:
+		Can just record delta vs recording entire DB every time used

@@ -139,7 +139,9 @@ class stonks:
 if __name__ == '__main__':
     stonks = stonks()
     stonks.start()
-    for i in range(3):
+    count = 1
+    while True:
         stonks.get_prices()
-        print("Iteration %d done!\n\n" %(i+1))
+        print("Iteration %d done!\n\n" %(count))
+        count+=1
     
