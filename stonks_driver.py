@@ -28,26 +28,26 @@ class stonks_driver:
         #Frame for scraper
         self.scraperFrame = Frame(self.gui, borderwidth=2, relief="ridge")
         self.scraperFrame.grid(row=0, column=0, sticky=(N,W,E))
-        for col in range(self.total_cols):
-            self.scraperFrame.grid_columnconfigure(col, weight=1, uniform="wide")
+       # for col in range(self.total_cols):
+        #    self.scraperFrame.grid_columnconfigure(col, weight=1, uniform="wide")
         
         #Scraper widgets
         temp = Label(self.scraperFrame, text="Scraper output")
         temp.grid(row=0, column=0, sticky=(N,W))
-        self.scraperOutput = tkst.ScrolledText(self.scraperFrame, height=3, state='disabled')
+        self.scraperOutput = tkst.ScrolledText(self.scraperFrame, width=40, height=3, state='disabled')
         self.scraperOutput.grid(row=1, column=0, rowspan=2, columnspan=3, sticky=(S,E,W))
         self.scraperRunning = False
         
         #Frame for analyzer
         self.analyzerFrame = Frame(self.gui, borderwidth=2, relief="ridge")
         self.analyzerFrame.grid(row=1, column=0, sticky=(W,E))
-        for col in range(self.total_cols):
-            self.analyzerFrame.grid_columnconfigure(col, weight=1, uniform="wide")
+        #for col in range(self.total_cols):
+         #   self.analyzerFrame.grid_columnconfigure(col, weight=1, uniform="wide")
             
         #Analyzer widgets
         temp = Label(self.analyzerFrame, text="Analyzer output")
         temp.grid(row=0, column=0, sticky=(N,W))
-        self.analyzerOutput = tkst.ScrolledText(self.analyzerFrame, height=3, state='disabled')
+        self.analyzerOutput = tkst.ScrolledText(self.analyzerFrame, width=40, height=3, state='disabled')
         self.analyzerOutput.grid(row=1, column=0, rowspan=2, columnspan=3, sticky=(S,E,W))
 
         #Frame for buttons
@@ -61,7 +61,7 @@ class stonks_driver:
         self.scraperBtn.grid(row=0, column=0, columnspan=1, padx=3, pady=3, sticky=(N,S,W))
         self.analzyerBtn = Button(self.buttonFrame, text="Analyzer")
         self.analzyerBtn.grid(row=0, column=1, columnspan=1, padx=3, pady=3, sticky=(N,S))
-        self.visualizerBtn = Button(self.buttonFrame, text="Visualizer")
+        self.visualizerBtn = Button(self.buttonFrame, text="Visualizer", command=self.start_visualizer)
         self.visualizerBtn.grid(row=0, column=2, columnspan=1, padx=3, pady=3, sticky=(N,S,E))
 
         #Initialize scraper object
@@ -70,6 +70,7 @@ class stonks_driver:
         self.update_log(self.scraperOutput, "Started!")
         
         #Start gui, add exit handlers for key event (CTRL+C), or window close
+        self.running = True
         atexit.register(self.exit_handler)
         self.gui.protocol("WM_DELETE_WINDOW", self.exit_handler)
         self.gui.mainloop()
@@ -105,37 +106,61 @@ class stonks_driver:
             self.update_log(self.scraperOutput, "Initializing scraper master")
         else:
             self.scraperRunning = False
-
+    
     def scraping_thread(self):
         starttime=time.time()
         time.sleep(0.1) #if this not here, will move right past the while loop
         while self.scraperRunning:
             #Sleep for a minute            
-            time.sleep(60.0 - ((time.time() - starttime) % 60.0))
-            
-            #Start scraping thread
-            #DO NOT ADD () ON TARGET FUNC, or it will run immediately and block on main thread
-            self.update_log(self.scraperOutput, "Starting slave")
-            self.scrape_data_thread = threading.Thread(target=self.scraper.get_prices, args=(self.messageQ,))
-            self.scrape_data_thread.start()
+            time.sleep(120.0 - ((time.time() - starttime) % 120.0))
 
-            #Start response thread
-            self.scraper_response_thread = threading.Thread(target=self.update_scraper)
-            self.scraper_response_thread.start()
+            if self.scraperRunning:
+                #Start scraping thread
+                #DO NOT ADD () ON TARGET FUNC, or it will run immediately and block on main thread
+                self.update_log(self.scraperOutput, "Starting slave")
+                self.scrape_data_thread = threading.Thread(target=self.scraper.get_prices, args=(self.messageQ,))
+                self.scrape_data_thread.start()
+                
+                #Start response thread
+                self.scraper_response_thread = threading.Thread(target=self.update_scraper)
+                self.scraper_response_thread.start()
             
     def update_scraper(self):
-        self.update_log(self.scraperOutput, "Iteration " + str(self.messageQ.get()) + " done")
-        self.update_log(self.scraperOutput, "Took " + str(self.messageQ.get()) + " seconds")
+        if self.scraperRunning:
+            if not self.messageQ.empty():
+                self.update_log(self.scraperOutput, "Iteration " + str(self.messageQ.get()) + " done")
+            if not self.messageQ.empty():    
+                self.update_log(self.scraperOutput, "Took " + str(self.messageQ.get()) + " seconds")
 
+    """
+    Visualizer section.
+    Opens the visualizer. This is standalone so not much here.
+    """
+    def start_visualizer(self):
+        self.visualizer = stonks_visualizer.stonks_visualizer()
+        self.visualizer_thread = threading.Thread(target=self.visualizer.gui_initialize())
+        self.visualizer_thread.start()        
+        
     def update_log(self, widget, text):
+        self.running = False
         widget.configure(state='normal')
-        widget.insert(INSERT, text + " @ " + datetime.datetime.now().time().strftime("%H:%M:%S") + "\n")
+        widget.insert("end", text + " @ " + datetime.datetime.now().time().strftime("%H:%M:%S") + "\n")
         widget.configure(state='disabled')
-
 
     def exit_handler(self):
         print("Application closing!")
+        self.scraperRunning = False
         self.gui.destroy()
+
+        
+        #See if any threads active still
+        active_threads = threading.enumerate()
+        if len(active_threads) > 2:
+            print("Threads are still active! Waiting for threads to close before exiting main program (could take up to 3 minutes)")
+            for thread in active_threads[2:]:
+                thread.join()
+                
         exit
+
         
 driver = stonks_driver()

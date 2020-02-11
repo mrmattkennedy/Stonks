@@ -57,7 +57,7 @@ class stonks_scraper:
         start_time = time.time()
         prices = []
 
-        for company in self.companies[:10]:
+        for company in self.companies:
             try:
                 company_info = urllib.request.urlopen(self.url+company).read().decode('UTF-8')
                 price_index = company_info.find(self.price_key)
@@ -72,8 +72,8 @@ class stonks_scraper:
                 continue
 
         #Now save the data
-        #save_thread = threading.Thread(target=self.save_data, args=(prices,))
-        #save_thread.start()
+        save_thread = threading.Thread(target=self.save_data, args=(prices,))
+        save_thread.start()
         
         if messageQ:
             messageQ.put(self.iteration_count)        
