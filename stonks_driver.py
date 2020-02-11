@@ -89,10 +89,8 @@ class stonks_driver:
             subprocess.check_call(["python", '-m', 'pip', 'install', package])
         except subprocess.CalledProcessError:
             print("Failed to install module " + package)
-            Print("Exiting. . .")
+            print("Exiting. . .")
             exit
-
-
 
     """
     Scraper section.
@@ -100,38 +98,31 @@ class stonks_driver:
     """
     def start_scraper(self):
         if not self.scraperRunning:
+            self.scraperRunning = True
             self.scraper_thread = threading.Thread(target=self.scraping_thread)
             self.scraper_thread.start()
-            self.scraperRunning = True
             self.update_log(self.scraperOutput, "Initializing scraper master")
         else:
             self.scraperRunning = False
+            self.update_log(self.scraperOutput, "Stopping scraper master")
     
     def scraping_thread(self):
-        starttime=time.time()
-        time.sleep(0.1) #if this not here, will move right past the while loop
         while self.scraperRunning:
-            #Sleep for a minute            
-            time.sleep(120.0 - ((time.time() - starttime) % 120.0))
+            #Start scraping thread
+            #DO NOT ADD () ON TARGET FUNC, or it will run immediately and block on main thread
+            self.update_log(self.scraperOutput, "Starting slave")
+            self.scrape_data_thread = threading.Thread(target=self.scraper.get_prices, args=(self.messageQ,))
+            self.scrape_data_thread.start()
 
-            if self.scraperRunning:
-                #Start scraping thread
-                #DO NOT ADD () ON TARGET FUNC, or it will run immediately and block on main thread
-                self.update_log(self.scraperOutput, "Starting slave")
-                self.scrape_data_thread = threading.Thread(target=self.scraper.get_prices, args=(self.messageQ,))
-                self.scrape_data_thread.start()
-                
-                #Start response thread
-                self.scraper_response_thread = threading.Thread(target=self.update_scraper)
-                self.scraper_response_thread.start()
+            #Block until response. Redundancy in scraperRunning check
+            #to see if main thread quit, preventing issue trying to write
+            #to a gui that doesn't exist.
+            while self.messageQ.empty() and self.scraperRunning:
+                time.sleep(0.1)
             
-    def update_scraper(self):
-        if self.scraperRunning:
-            if not self.messageQ.empty():
+            if self.scraperRunning:
                 self.update_log(self.scraperOutput, "Iteration " + str(self.messageQ.get()) + " done")
-            if not self.messageQ.empty():    
                 self.update_log(self.scraperOutput, "Took " + str(self.messageQ.get()) + " seconds")
-
     """
     Visualizer section.
     Opens the visualizer. This is standalone so not much here.
@@ -145,21 +136,13 @@ class stonks_driver:
         self.running = False
         widget.configure(state='normal')
         widget.insert("end", text + " @ " + datetime.datetime.now().time().strftime("%H:%M:%S") + "\n")
+        widget.see(END)
         widget.configure(state='disabled')
+        
 
     def exit_handler(self):
-        print("Application closing!")
         self.scraperRunning = False
         self.gui.destroy()
-
-        
-        #See if any threads active still
-        active_threads = threading.enumerate()
-        if len(active_threads) > 2:
-            print("Threads are still active! Waiting for threads to close before exiting main program (could take up to 3 minutes)")
-            for thread in active_threads[2:]:
-                thread.join()
-                
         exit
 
         

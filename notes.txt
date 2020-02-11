@@ -7,3 +7,9 @@ Flow:
 Scraper pulls, then wakes up analyzer
 	Pros to waking up/maintaing process:
 		Can just record delta vs recording entire DB every time used
+
+Starts at driver. 
+Driver has GUI
+Runs iterations of scraper
+Calls analyzer when scraper done after each iteration
+Can also run visualizer
