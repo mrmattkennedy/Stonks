@@ -8,7 +8,7 @@ import datetime
 import threading
 from lxml import html
 
-class stonks:
+class stonks_scraper:
     def __init__(self):
         self.url = "https://markets.businessinsider.com"
         self.indeces = ["/index/components/dow_jones", 
@@ -25,6 +25,8 @@ class stonks:
         self.price_key = '"price":'
         self.stock_start = "/stock/"
         self.stock_end = "-stock"
+
+        self.iteration_count = 1
         
     def start(self):
         #see if company file list already exists
@@ -51,11 +53,11 @@ class stonks:
                     file.write(company + "\n")
 
     #Get the prices                    
-    def get_prices(self):
+    def get_prices(self, messageQ=None):
         start_time = time.time()
         prices = []
 
-        for company in self.companies:
+        for company in self.companies[:10]:
             try:
                 company_info = urllib.request.urlopen(self.url+company).read().decode('UTF-8')
                 price_index = company_info.find(self.price_key)
@@ -68,14 +70,16 @@ class stonks:
                 #print(stock_name + ":" + str(price))
             except:
                 continue
-            
-        #Print times
-        print("\nEND:")
-        print("--- %s seconds ---" % (time.time() - start_time))
 
         #Now save the data
-        save_thread = threading.Thread(target=self.save_data, args=(prices,))
-        save_thread.start()
+        #save_thread = threading.Thread(target=self.save_data, args=(prices,))
+        #save_thread.start()
+        
+        if messageQ:
+            messageQ.put(self.iteration_count)        
+            messageQ.put(round(time.time() - start_time, 2))
+            
+        self.iteration_count+=1
 
     def is_number(self, s):
         try:
@@ -136,8 +140,10 @@ class stonks:
             file.truncate()
 
         return
+
+#If running standalone
 if __name__ == '__main__':
-    stonks = stonks()
+    stonks = stonks_scraper()
     stonks.start()
     count = 1
     while True:

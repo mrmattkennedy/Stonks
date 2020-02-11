@@ -30,7 +30,7 @@ class stonks_visualizer():
         
         #Initialize GUI
         self.gui = Tk()
-        self.gui.title('Stonks')
+        self.gui.title('Stonks Visualizer')
 
         #Mainframe for all widgets
         self.mainframe = Frame(self.gui)
@@ -265,6 +265,6 @@ class stonks_visualizer():
             self.tableElems.append(tempEnd)
             self.tableElems.append(tempDiff)
 
-        
-visualizer = stonks_visualizer()
-visualizer.gui_initialize()
+if __name__ == '__main__':
+    visualizer = stonks_visualizer()
+    visualizer.gui_initialize()
