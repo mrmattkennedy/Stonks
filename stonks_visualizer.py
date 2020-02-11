@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.dates as dates
 from tkinter import *
+from stonks_sorter import stonks_sorter
 
 class stonks_visualizer():
     def __init__(self):
@@ -23,6 +24,9 @@ class stonks_visualizer():
         with open(self.prices_links_path, "r") as file:
             data_reader = csv.reader(file, delimiter=',')
             self.data_contents = [row for row in data_reader]
+
+        #For sorting and other information
+        self.stonks_sorter = stonks_sorter(self.data_contents)
         
         #Initialize GUI
         self.gui = Tk()
@@ -67,18 +71,23 @@ class stonks_visualizer():
         
     def displayStockInfo(self):
         self.selected_company = self.companyEntry.get()
+        if not self.selected_company:
+            return
+        
         #Step 1: Find company.
         if len(self.data_contents) > 0:
             if self.selected_company not in self.data_contents[0]:
                 self.companyEntry.delete(0, END)
                 self.companyEntry.insert(0, "Company not in spreadsheet.")
+                return
         else:
             self.companyEntry.delete(0, END)
             self.companyEntry.insert(0, "Company not in spreadsheet.")
-
+            return
 
         #Step 2: Get index of company.
         company_index = self.data_contents[0].index(self.selected_company)
+
             
         
         #Step 3: Get all rows in that column, append to 2D list.
@@ -86,7 +95,7 @@ class stonks_visualizer():
         try:
             #If earliest date is a think, then compare. If not, grab them all.
             if self.greatestIncreaseRange.get():
-                self.earliestDate = self.get_earliest_date()
+                self.earliestDate = self.stonks_sorter.get_earliest_date(self.greatestIncreaseRange.get())
                 
                 for row in self.data_contents[1:]: #loop through each row except first
                     pastDate = datetime.datetime.strptime(row[company_index+1], "%m/%d/%Y %H:%M:%S").date()
@@ -129,7 +138,7 @@ class stonks_visualizer():
     def more_info(self):
         self.increaseList = []
         self.tableElems = []
-        self.tableRow = 4
+        self.tableRow = 3
         
         #Create secondary GUI and frame
         self.moreInfoGUI = Toplevel(self.gui)
@@ -179,27 +188,48 @@ class stonks_visualizer():
         #If the list exists and no settings have changed, don't go through all the data again
         if not self.increaseList:
             #Get range for dates
-            self.earliestDate = self.get_earliest_date()
+            self.earliestDate = self.stonks_sorter.get_earliest_date(self.greatestIncreaseRange.get())
             
             #Go through every company, and get every value until the day is no longer in range
             self.numberCompanies = int(self.greatestIncreaseNumCompanies.get())
-            self.increaseList = self.get_increase_list(self.numberCompanies)
+            self.increaseList = self.stonks_sorter.get_increase_list(
+                self.numberCompanies,
+                self.earliestDate,
+                self.growthDirectionVar.get(),
+                self.growthVar.get())
+
+            #Save current choices to determine if change was made
             self.currentGrowth = self.growthVar.get()
             self.currentGrowthDirection = self.growthDirectionVar.get()
             
         else:
+            #See if earliest date changed
             currentEarliestDate = self.earliestDate
-            self.earliestDate = self.get_earliest_date()
-            unchangedRange = True if currentEarliestDate == self.earliestDate else False
-            
-            #Go through every company, and get every value until the day is no longer in range
+            self.earliestDate = self.stonks_sorter.get_earliest_date(self.greatestIncreaseRange.get())
+            changedRange = False if currentEarliestDate == self.earliestDate else True
+
+            #See if # companies changed
             currentNumberCompanies = self.numberCompanies
             self.numberCompanies = int(self.greatestIncreaseNumCompanies.get())
-            unchangedNumber = True if currentNumberCompanies == self.numberCompanies else False
-            #TODO: Add change logic for change direction and growth
+            changedNumber = False if currentNumberCompanies == self.numberCompanies else True
 
-            if not unchangedRange or not unchangedNumber:
-                self.increaseList = self.get_increase_list(self.numberCompanies)
+            #See if growth var changed
+            changedGrowthVar = False if self.growthVar.get() == self.currentGrowth else True
+
+            #See if growth direction changed
+            changedGrowthDirection = False if self.growthDirectionVar.get() == self.currentGrowthDirection else True
+
+            #Set current choices
+            self.currentGrowth = self.growthVar.get()
+            self.currentGrowthDirection = self.growthDirectionVar.get()
+
+            #print(changedRange, changedNumber, changedGrowthVar, changedGrowthDirection)
+            if changedRange or changedNumber or changedGrowthVar or changedGrowthDirection:
+                self.increaseList = self.stonks_sorter.get_increase_list(
+                self.numberCompanies,
+                self.earliestDate,
+                self.growthDirectionVar.get(),
+                self.growthVar.get())
 
         #Remove all prior elements and clear list
         for element in self.tableElems:
@@ -221,101 +251,19 @@ class stonks_visualizer():
         #Display info
         for company in range(len(self.increaseList)):
             tempName = Label(self.moreInfoFrame, text=self.increaseList[company][0], borderwidth=2, relief="groove")
-            tempName.grid(row=company + self.tableRow, column=0, sticky=(N,S,E,W))
+            tempName.grid(row=company + self.tableRow + 1, column=0, sticky=(N,S,E,W))
             tempStart = Label(self.moreInfoFrame, text=self.increaseList[company][3], borderwidth=2, relief="groove")
-            tempStart.grid(row=company + self.tableRow, column=1, sticky=(N,S,E,W))
+            tempStart.grid(row=company + self.tableRow + 1, column=1, sticky=(N,S,E,W))
             tempEnd = Label(self.moreInfoFrame, text=self.increaseList[company][4], borderwidth=2, relief="groove")
-            tempEnd.grid(row=company + self.tableRow, column=2, sticky=(N,S,E,W))
-            tempDiff = Label(self.moreInfoFrame, text=self.increaseList[company][1], borderwidth=2, relief="groove")
-            tempDiff.grid(row=company + self.tableRow, column=3, sticky=(N,S,E,W))
-            tempDiffPercent = Label(self.moreInfoFrame, text=self.increaseList[company][2], borderwidth=2, relief="groove")
-            tempDiffPercent.grid(row=company + self.tableRow, column=4, sticky=(N,S,E,W))
+            tempEnd.grid(row=company + self.tableRow + 1, column=2, sticky=(N,S,E,W))
+            tempDiff = Label(self.moreInfoFrame, text="$" + str(self.increaseList[company][1]), borderwidth=2, relief="groove")
+            tempDiff.grid(row=company + self.tableRow + 1, column=3, sticky=(N,S,E,W))
+            tempDiffPercent = Label(self.moreInfoFrame, text=str(self.increaseList[company][2]) + "%", borderwidth=2, relief="groove")
+            tempDiffPercent.grid(row=company + self.tableRow + 1, column=4, sticky=(N,S,E,W))
             self.tableElems.append(tempName)
             self.tableElems.append(tempStart)
             self.tableElems.append(tempEnd)
             self.tableElems.append(tempDiff)
-    """
-    Helper function
-    Get the earliest date for the highest increase range
-    """
-    def get_earliest_date(self):
-        if self.greatestIncreaseRange.get() == "Day": #day
-            return datetime.datetime.today().date()
-        elif self.greatestIncreaseRange.get() == "Week": #week
-            return (datetime.datetime.now() - datetime.timedelta(days=7)).date()
-        elif self.greatestIncreaseRange.get() == "1 Month": #month
-            today = datetime.datetime.today().date()
-            currentMonth = today.month
-            currentYear = today.year
-            
-            if currentMonth == 1:
-                return datetime.datetime.today().date().replace(month=12,year=currentYear-1)
-            else:
-                return datetime.datetime.today().date().replace(month=currentMonth-1)
-        elif self.greatestIncreaseRange.get() == "6 Months": #6 months
-            today = datetime.datetime.today()
-            currentMonth = today.month
-            currentYear = today.year
-            
-            if currentMonth <= 7:
-                return datetime.datetime.today().date().replace(month=12+(currentMonth-6),year=currentYear-1)
-            else:
-                return datetime.datetime.today().date().replace(month=currentMonth-6)
-        elif self.greatestIncreaseRange.get() == "Year": #year
-            currentYear = datetime.datetime.today().year
-            return datetime.datetime.today().date().replace(year=currentYear-1)
-
-        return ""
-
-    """
-    Helper function
-    Get list of greatest increases of stocks in data
-    """
-    def get_increase_list(self, length):
-        retList = []
-        for company in range(0, len(self.data_contents[0]), 2):
-            
-            #Get the last recorded price value
-            last_row = len(self.data_contents) - 1
-            empty_row = True
-            
-            while empty_row:
-                if not self.data_contents[last_row][company]:
-                    last_row-=1
-                    continue
-                empty_row = False
-
-            #Get the prices starting at the last recorded price value
-            acceptable_range = True
-            starting_price = -1
-            current_row = last_row
-            ending_price = self.data_contents[last_row][company]
-            
-            while acceptable_range:
-                pastDate = datetime.datetime.strptime(self.data_contents[current_row][company+1], "%m/%d/%Y %H:%M:%S").date()
-                if pastDate >= self.earliestDate and current_row != 1:
-                    starting_price = self.data_contents[current_row][company]
-                    current_row-=1
-                else:
-                    acceptable_range = False
-
-            #Get the price difference and append it
-            increase = round(float(ending_price) - float(starting_price), 2)
-            percentIncrease = round(((float(ending_price) / float(starting_price)) - 1) * 100, 2)
-            retList.append([self.data_contents[0][company], increase, percentIncrease, round(float(starting_price), 2), round(float(ending_price), 2)])
-
-        #Sort list according to greatest increase
-        if self.growthDirectionVar.get() == "Increase" and self.growthVar.get() == "$":
-            retList = sorted(retList, key = lambda x: x[1])
-        elif self.growthDirectionVar.get() == "Increase" and self.growthVar.get() == "%":
-            retList = sorted(retList, key = lambda x: x[2])
-        elif self.growthDirectionVar.get() == "Decrease" and self.growthVar.get() == "$":
-            retList = sorted(retList, key = lambda x: x[1])
-            retList.reverse()
-        elif self.growthDirectionVar.get() == "Decrease" and self.growthVar.get() == "%":
-            retList = sorted(retList, key = lambda x: x[2])
-            retList.reverse()
-        return retList[-length:]
 
         
 visualizer = stonks_visualizer()
