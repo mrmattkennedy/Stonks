@@ -1,3 +1,5 @@
+import os
+import sys
 import time
 import atexit
 import datetime
@@ -128,10 +130,14 @@ class stonks_main:
     Opens the visualizer. This is standalone so not much here.
     """
     def start_visualizer(self):
-        self.visualizer = stonks_visualizer.stonks_visualizer()
-        self.visualizer_thread = threading.Thread(target=self.visualizer.gui_initialize())
-        self.visualizer_thread.start()        
-        
+        system = os.name
+        if system == 'nt': #Windows
+            p = subprocess.Popen([sys.executable, sys.path[0] + "\\stonks_visualizer.py"])
+        elif system == 'posix':
+            p = subprocess.Popen([sys.executable, sys.path[0] + "//stonks_visualizer.py"], shell=True)
+
+
+    #Updates the given widget (log) with the given text
     def update_log(self, widget, text):
         self.running = False
         widget.configure(state='normal')
