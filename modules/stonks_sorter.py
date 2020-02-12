@@ -45,35 +45,8 @@ class stonks_sorter():
     def get_increase_list(self, length, earliestDate, growthDirectionVar, growthVar):
         retList = []
         for company in range(0, len(self.data_contents[0]), 2):
-            
-            #Get the last recorded price value
-            last_row = len(self.data_contents) - 1
-            empty_row = True
-            
-            while empty_row:
-                if not self.data_contents[last_row][company]:
-                    last_row-=1
-                    continue
-                empty_row = False
-
-            #Get the prices starting at the last recorded price value
-            acceptable_range = True
-            starting_price = -1
-            current_row = last_row
-            ending_price = self.data_contents[last_row][company]
-            
-            while acceptable_range:
-                pastDate = datetime.datetime.strptime(self.data_contents[current_row][company+1], "%m/%d/%Y %H:%M:%S").date()
-                if pastDate >= earliestDate and current_row != 1:
-                    starting_price = self.data_contents[current_row][company]
-                    current_row-=1
-                else:
-                    acceptable_range = False
-
-            #Get the price difference and append it
-            increase = round(float(ending_price) - float(starting_price), 2)
-            percentIncrease = round(((float(ending_price) / float(starting_price)) - 1) * 100, 2)
-            retList.append([self.data_contents[0][company], increase, percentIncrease, round(float(starting_price), 2), round(float(ending_price), 2)])
+            startingPrice, endingPrice, increase, percentIncrease = self.get_price_diff(company, earliestDate)
+            retList.append([self.data_contents[0][company], increase, percentIncrease, startingPrice, endingPrice])
 
         #Sort list according to greatest increase
         if growthDirectionVar == "Increase" and growthVar == "$":
@@ -88,4 +61,42 @@ class stonks_sorter():
             retList.reverse()
         return retList[-length:]
         
-    
+    def get_price_diff(self, company, earliestDate=None, index=None):
+        #Get the last recorded price value
+        last_row = len(self.data_contents) - 1
+        empty_row = True
+        
+        while empty_row:
+            if not self.data_contents[last_row][company]:
+                last_row-=1
+                continue
+            empty_row = False
+
+        #Get the prices starting at the last recorded price value
+        starting_price = -1
+        ending_price = self.data_contents[last_row][company]
+
+        if earliestDate:
+            current_row = last_row
+            acceptable_range = True
+            
+            while acceptable_range:
+                try:
+                    pastDate = datetime.datetime.strptime(self.data_contents[current_row][company+1], "%m/%d/%Y %H:%M:%S").date()
+                except ValueError:
+                    pastDate = datetime.datetime.strptime(self.data_contents[current_row][company+1], "%m/%d/%Y %H:%M").date()
+                if pastDate >= earliestDate and current_row != 1:
+                    starting_price = self.data_contents[current_row][company]
+                    current_row-=1
+                else:
+                    acceptable_range = False
+        elif index:
+            starting_row = last_row
+            ending_row = last_row - index
+            starting_price = self.data_contents[ending_row][company]
+            
+        #Get the price difference and append it
+        increase = round(float(ending_price) - float(starting_price), 2)
+        percentIncrease = round(((float(ending_price) / float(starting_price)) - 1) * 100, 2)
+        
+        return round(float(starting_price), 2), round(float(ending_price), 2), increase, percentIncrease

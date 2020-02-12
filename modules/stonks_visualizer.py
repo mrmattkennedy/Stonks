@@ -89,8 +89,6 @@ class stonks_visualizer():
 
         #Step 2: Get index of company.
         company_index = self.data_contents[0].index(self.selected_company)
-
-            
         
         #Step 3: Get all rows in that column, append to 2D list.
         pricing_data = []
@@ -116,7 +114,16 @@ class stonks_visualizer():
         #Need if entry[i] on end for potential blank values
         prices = [float(entry[0]) for entry in pricing_data if entry[0]]
         #Convert from saved string to list of datetime.datetime objects for matplotlib
-        timestamps = dates.date2num([datetime.datetime.strptime(entry[1], "%m/%d/%Y %H:%M:%S") for entry in pricing_data if entry[1]])
+        #print(pricing_data[1][1].seconds)
+        
+        timestamps = []
+        #Need this; when importing datetime strings, if seconds are 00, they get removed.
+        for entry in pricing_data:
+            try:
+                if entry[1]:
+                    timestamps.append(dates.date2num(datetime.datetime.strptime(entry[1], "%m/%d/%Y %H:%M:%S")))
+            except ValueError:
+                timestamps.append(dates.date2num(datetime.datetime.strptime(entry[1], "%m/%d/%Y %H:%M")))
             
         priceDiff = max(prices) - min(prices)
         minPrice = min(prices)
@@ -266,6 +273,7 @@ class stonks_visualizer():
             self.tableElems.append(tempStart)
             self.tableElems.append(tempEnd)
             self.tableElems.append(tempDiff)
+            self.tableElems.append(tempDiffPercent)
 
 if __name__ == '__main__':
     visualizer = stonks_visualizer()
