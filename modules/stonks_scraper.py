@@ -7,6 +7,7 @@ import time
 import datetime
 import threading
 from lxml import html
+from pathlib import Path
 
 class stonks_scraper:
     def __init__(self):
@@ -19,8 +20,9 @@ class stonks_scraper:
             "/index/components/dax"]
         self.companies = []
         self.company_indicator = "/stocks/"
-        self.company_links_path = sys.path[0] + "\\data\\company_links.dat"
-        self.prices_links_path = sys.path[0] + "\\data\\data.csv"
+        self.rootDir = Path(sys.path[0]).parent
+        self.company_links_path = str(self.rootDir) + "\\data\\company_links.dat"
+        self.prices_links_path = str(self.rootDir) + "\\data\\data.csv"
 
         self.price_key = '"price":'
         self.stock_start = "/stock/"
@@ -48,7 +50,7 @@ class stonks_scraper:
             for link in webpage.xpath('//a/@href'):
                 if link.startswith(self.company_indicator) and not link in companies:
                     self.companies.append(link)
-            with open("company_links.dat", "w") as file:
+            with open(self.company_links_path, "w") as file:
                 for company in self.companies:
                     file.write(company + "\n")
 

@@ -6,13 +6,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.dates as dates
 from tkinter import *
+from pathlib import Path
 from stonks_sorter import stonks_sorter
 
 class stonks_visualizer():
     def __init__(self):
         #Initialize vars
-        self.company_links_path = sys.path[0] + "\\data\\company_links.dat"
-        self.prices_links_path = sys.path[0] + "\\data\\data.csv"
+        self.rootDir = Path(sys.path[0]).parent
+        self.company_links_path = str(self.rootDir) + "\\data\\company_links.dat"
+        self.prices_links_path = str(self.rootDir) + "\\data\\data.csv"
         self.company_prefix = "/stocks/"
         self.company_suffix = "-stock"
         self.selected_company = None

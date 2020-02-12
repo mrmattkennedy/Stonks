@@ -11,7 +11,7 @@ from tkinter import *
 from multiprocessing import Queue
 
 
-class stonks_driver:
+class stonks_main:
     def __init__(self):
         #Make sure all modules installed
         self.module_list = ["matplotlib"]
@@ -145,5 +145,7 @@ class stonks_driver:
         self.gui.destroy()
         exit
 
-        
-driver = stonks_driver()
+
+#If running standalone
+if __name__ == '__main__':        
+    driver = stonks_main()
