@@ -71,6 +71,10 @@ class stonks_main:
         self.scraper.start()
         self.update_log(self.scraperOutput, "Started!")
         
+        self.analyzer = stonks_analyzer.stonks_analyzer()
+        self.update_log(self.analyzerOutput, "Started!")
+        
+        
         #Start gui, add exit handlers for key event (CTRL+C), or window close
         self.running = True
         atexit.register(self.exit_handler)
@@ -125,6 +129,21 @@ class stonks_main:
             if self.scraperRunning:
                 self.update_log(self.scraperOutput, "Iteration " + str(self.messageQ.get()) + " done")
                 self.update_log(self.scraperOutput, "Took " + str(self.messageQ.get()) + " seconds")
+                
+                self.start_analyzer_thread = threading.Thread(target=self.run_analyzer)
+                self.start_analyzer_thread.start()
+            
+    def run_analyzer(self):
+        self.analyzer_thread = threading.Thread(target=self.analyzer.check_stocks, args=(self.messageQ,))
+        self.analyzer_thread.start()
+
+        while self.messageQ.empty() and self.scraperRunning:
+            time.sleep(0.1)
+        
+        if self.scraperRunning:
+            self.update_log(self.analyzerOutput, "Made " + str(self.messageQ.get()))
+            self.update_log(self.analyzerOutput, "Spent " + str(self.messageQ.get()) + " seconds")
+                
     """
     Visualizer section.
     Opens the visualizer. This is standalone so not much here.

@@ -65,7 +65,8 @@ class stonks_sorter():
         #Get the last recorded price value
         last_row = len(self.data_contents) - 1
         empty_row = True
-        
+
+        #print(self.data_contents[0][company])
         while empty_row:
             if not self.data_contents[last_row][company]:
                 last_row-=1
@@ -94,7 +95,7 @@ class stonks_sorter():
             starting_row = last_row
             ending_row = last_row - index
             starting_price = self.data_contents[ending_row][company]
-            
+
         #Get the price difference and append it
         increase = round(float(ending_price) - float(starting_price), 2)
         percentIncrease = round(((float(ending_price) / float(starting_price)) - 1) * 100, 2)
