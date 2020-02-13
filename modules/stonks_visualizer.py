@@ -235,11 +235,10 @@ class stonks_visualizer():
             #print(changedRange, changedNumber, changedGrowthVar, changedGrowthDirection)
             if changedRange or changedNumber or changedGrowthVar or changedGrowthDirection:
                 self.increaseList = self.stonks_sorter.get_increase_list(
-                self.numberCompanies,
-                self.earliestDate,
-                self.growthDirectionVar.get(),
-                self.growthVar.get())
-
+                    self.numberCompanies,
+                    self.earliestDate,
+                    self.growthDirectionVar.get(),
+                    self.growthVar.get())
         #Remove all prior elements and clear list
         for element in self.tableElems:
             element.destroy()
