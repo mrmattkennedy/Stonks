@@ -39,6 +39,8 @@ class stonks_main:
         self.scraperOutput = tkst.ScrolledText(self.scraperFrame, width=40, height=3, state='disabled')
         self.scraperOutput.grid(row=1, column=0, rowspan=2, columnspan=3, sticky=(S,E,W))
         self.scraperRunning = False
+        self.blockingScraper = False
+        self.running = True
         
         #Frame for analyzer
         self.analyzerFrame = Frame(self.gui, borderwidth=2, relief="ridge")
@@ -76,7 +78,6 @@ class stonks_main:
         
         
         #Start gui, add exit handlers for key event (CTRL+C), or window close
-        self.running = True
         atexit.register(self.exit_handler)
         self.gui.protocol("WM_DELETE_WINDOW", self.exit_handler)
         self.gui.mainloop()
@@ -103,12 +104,14 @@ class stonks_main:
     Starts a scraper thread, which will start a new scraper every 60 seconds
     """
     def start_scraper(self):
-        if not self.scraperRunning:
+        if not self.scraperRunning and not self.blockingScraper:
             self.scraperRunning = True
             self.scraper_thread = threading.Thread(target=self.scraping_thread)
             self.scraper_thread.start()
             self.update_log(self.scraperOutput, "Initializing scraper master")
         else:
+            if self.blockingScraper:
+                return
             self.scraperRunning = False
             self.update_log(self.scraperOutput, "Stopping scraper master")
     
@@ -135,7 +138,14 @@ class stonks_main:
 
                 #Having issues threading, try this.
                 self.run_analyzer()
-            
+            else:
+                self.update_log(self.scraperOutput, "Blocking until scraper threads done")
+                self.blockingScraper = True
+                self.messageQ.get()
+                self.messageQ.get()
+                self.blockingScraper = False
+                self.update_log(self.scraperOutput, "Done blocking")
+                
     def run_analyzer(self):
         """
         self.analyzer_thread = threading.Thread(target=self.analyzer.check_stocks, args=(self.messageQ,))
@@ -150,6 +160,7 @@ class stonks_main:
         total_value = self.analyzer.check_stocks()
         if self.scraperRunning:
             self.update_log(self.analyzerOutput, "Total value is " + str(round(float(total_value), 2)))
+            
     """
     Visualizer section.
     Opens the visualizer. This is standalone so not much here.
@@ -164,15 +175,16 @@ class stonks_main:
 
     #Updates the given widget (log) with the given text
     def update_log(self, widget, text):
-        self.running = False
-        widget.configure(state='normal')
-        widget.insert("end", text + " @ " + datetime.datetime.now().time().strftime("%H:%M:%S") + "\n")
-        widget.see(END)
-        widget.configure(state='disabled')
+        if self.running:
+            widget.configure(state='normal')
+            widget.insert("end", text + " @ " + datetime.datetime.now().time().strftime("%H:%M:%S") + "\n")
+            widget.see(END)
+            widget.configure(state='disabled')
         
 
     def exit_handler(self):
         self.scraperRunning = False
+        self.running = False
         self.gui.destroy()
         exit
 

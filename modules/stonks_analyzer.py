@@ -11,12 +11,10 @@ from stonks_sorter import stonks_sorter
 class stonks_analyzer:
     def __init__(self):
         self.rootDir = Path(sys.path[0]).parent
-        self.company_links_path = str(self.rootDir) + "\\data\\company_links.dat"
+        self.company_links_path = str(self.rootDir) + "\\data\\company_symbols.dat"
         self.prices_links_path = str(self.rootDir) + "\\data\\data.csv"
         self.current_stocks_path = str(self.rootDir) + "\\data\\current_stocks.csv"
         self.cash_path = str(self.rootDir) + "\\data\\cash.dat"
-        self.company_prefix = "/stocks/"
-        self.company_suffix = "-stock"
 
         #Get pricing data
         if not os.path.isfile(self.company_links_path) or not os.path.isfile(self.prices_links_path):
@@ -46,10 +44,7 @@ class stonks_analyzer:
         self.growth_amount = 0.2
 
     #Check each company stock prices, see if any worth buying/selling
-    def check_stocks(self, messageQ=None):
-        self.cash += 100
-        self.cash_spent += 100
-        
+    def check_stocks(self, messageQ=None):        
         self.sell_stocks(messageQ)
         self.buy_stocks(messageQ)
         
@@ -194,9 +189,9 @@ class stonks_analyzer:
                     total_value += float(value)
         
         if not messageQ:
-            return total_value - self.cash_spent
+            return total_value
         else:
-            messageQ.put(total_value - self.cash_spent)
+            messageQ.put(total_value)
 
     """
     Helper function

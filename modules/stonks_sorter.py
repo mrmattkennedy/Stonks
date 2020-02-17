@@ -78,26 +78,34 @@ class stonks_sorter():
         ending_price = self.data_contents[last_row][company]
 
         if earliestDate:
-            current_row = last_row
+            ending_row = last_row
             acceptable_range = True
             
             while acceptable_range:
                 try:
-                    pastDate = datetime.datetime.strptime(self.data_contents[current_row][company+1], "%m/%d/%Y %H:%M:%S").date()
+                    pastDate = datetime.datetime.strptime(self.data_contents[ending_row][company+1], "%m/%d/%Y %H:%M:%S").date()
                 except ValueError:
-                    pastDate = datetime.datetime.strptime(self.data_contents[current_row][company+1], "%m/%d/%Y %H:%M").date()
-                if pastDate >= earliestDate and current_row != 1:
-                    starting_price = self.data_contents[current_row][company]
-                    current_row-=1
+                    pastDate = datetime.datetime.strptime(self.data_contents[ending_row][company+1], "%m/%d/%Y %H:%M").date()
+
+                #Get starting price
+                if pastDate >= earliestDate and ending_row != 1:
+                    starting_price = self.data_contents[ending_row][company]
+                    ending_row-=1
                 else:
                     acceptable_range = False
+            
         elif index:
             starting_row = last_row
-            ending_row = last_row - index
+            ending_row = last_row - index if last_row - index >= 1 else 1
             starting_price = self.data_contents[ending_row][company]
 
         #Get the price difference and append it
-        increase = round(float(ending_price) - float(starting_price), 2)
-        percentIncrease = round(((float(ending_price) / float(starting_price)) - 1) * 100, 2)
+        if starting_price == -1:
+            starting_price = ending_price
+            increase = 0
+            percentIncrease = 0
+        else:
+            increase = round(float(ending_price) - float(starting_price), 2)
+            percentIncrease = round(((float(ending_price) / float(starting_price)) - 1) * 100, 2)
         
         return round(float(starting_price), 2), round(float(ending_price), 2), increase, percentIncrease

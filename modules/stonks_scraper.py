@@ -8,89 +8,125 @@ import datetime
 import threading
 from lxml import html
 from pathlib import Path
+from lxml import etree
+from string import ascii_uppercase
 
 class stonks_scraper:
     def __init__(self):
-        self.url = "https://markets.businessinsider.com"
-        self.indeces = ["/index/components/dow_jones", 
-            "/index/components/s&p_500",
-            "/index/components/nasdaq_100",
-            "/index/components/ftse_100",
-            "/index/components/euro_stoxx_50",
-            "/index/components/dax"]
-        self.companies = []
-        self.company_indicator = "/stocks/"
+        self.quote_url = "https://markets.businessinsider.com/stocks/{}-stock"
+        self.symbol_finder_url = 'http://eoddata.com/stocklist/NYSE/{}.htm'
+        self.symbols = []
+        self.symbol_data = []
         self.rootDir = Path(sys.path[0]).parent
-        self.company_links_path = str(self.rootDir) + "\\data\\company_links.dat"
+        self.company_links_path = str(self.rootDir) + "\\data\\company_symbols.dat"
         self.prices_links_path = str(self.rootDir) + "\\data\\data.csv"
 
+        self.num_threads = 50
         self.price_key = '"price":'
-        self.stock_start = "/stock/"
-        self.stock_end = "-stock"
+        self.iteration_count = 0
 
-        self.iteration_count = 1
-        
+    #Check for companies file, create if necessary
     def start(self):
         #see if company file list already exists
         if not os.path.isfile(self.company_links_path):
             self.update_companies_file()
         else:
             #Set the companies list to most up-to-date file
-            self.companies = [line.rstrip('\n') for line in open(self.company_links_path, 'r')]
+            self.symbols = [line.rstrip('\n') for line in open(self.company_links_path, 'r')]
+        self.symbol_data = [None] * len(self.symbols)
 
+    #Write symbols to file
     def update_companies_file(self):
         #Get a list of available companies
-        for index in self.indeces:
-            index_url = self.url + index
-            page = requests.get(index_url)
-            webpage = html.fromstring(page.content)
+        self.get_company_letter_links()
+        with open(self.company_links_path, "w") as file:
+            for company in self.symbols:
+                file.write(company + "\n")
 
-            #For every link, check if starts with same indicator for stocks.
-            #If unique, append
-            for link in webpage.xpath('//a/@href'):
-                if link.startswith(self.company_indicator) and not link in companies:
-                    self.companies.append(link)
-            with open(self.company_links_path, "w") as file:
-                for company in self.companies:
-                    file.write(company + "\n")
+    #Get every symbol available   
+    def get_company_letter_links(self):
+        #Loop through every letter of alphabet
+        for letter in ascii_uppercase:
+            #Get page contents
+            page = requests.get(self.symbol_finder_url.format(letter))
 
-    #Get the prices                    
+            #Get table element containing all the symbols for that letter
+            soup = BeautifulSoup(page.text, 'html.parser')
+            table = soup.find("table", {"class": "quotes"})
+            stocks = table.findAll("tr")
+
+            token_start = 'onclick="location.href=' + "'/stockquote/NYSE/"
+            token_end = ".htm'"
+
+            #Get all symbols for that letter
+            for stock in stocks[1:]:
+                str_stock = str(stock)
+                self.symbols.append(str_stock[str_stock.find(token_start) + len(token_start):
+                                         str_stock.find(token_end)])
+    #Get the prices
     def get_prices(self, messageQ=None):
+        #Save all threads to wait on join
+        thread_list = []
+
+        #Start timer and reset symbol data
         start_time = time.time()
-        prices = []
-
-        for company in self.companies:
-            try:
-                company_info = urllib.request.urlopen(self.url+company).read().decode('UTF-8')
-                price_index = company_info.find(self.price_key)
-                price = company_info[price_index + len(self.price_key):company_info.find(",", price_index + len(self.price_key))]
-                price = price.replace('"', "")
-                if not self.is_number(price):
-                    continue
-                stock_name = company[len(self.stock_start) + 1:len(company)-len(self.stock_end)]
-                prices.append([stock_name, price, datetime.datetime.now().strftime("%m/%d/%Y %H:%M:%S")])
-                #print(stock_name + ":" + str(price))
-            except:
-                continue
-
-        #Now save the data
-        save_thread = threading.Thread(target=self.save_data, args=(prices,))
-        save_thread.start()
+        self.symbol_data = [None] * len(self.symbols)
         
-        if messageQ:
+        #Split list into even chunks and start each thread.
+        for chunk in self.splitList(self.symbols, self.num_threads):
+            startIndex = self.symbols.index(chunk[0])
+            scrape_thread = threading.Thread(target=self.scrape_data, args=(chunk,startIndex))
+            thread_list.append(scrape_thread)
+            scrape_thread.start()
+
+        #Wait for each threads with a timeout of 6 mins
+        active_count = str(threading.active_count())
+        for thread in thread_list:
+            thread.join(360)
+
+        #Delete any unfound quotes
+        for quote in range(len(self.symbol_data) - 1, 0, -1):
+            if self.symbol_data[quote] is None:
+                del self.symbol_data[quote]
+       
+        #Now save the data
+        #save_thread = threading.Thread(target=self.save_data)
+        #save_thread.start()
+        
+        #Saving on a thread causes race condition for symbol_data, messes up.
+        self.save_data()
+        self.iteration_count+=1
+        
+        #Check if standalone, or if messageQ. If neither (not on a thread but not main), just return time.
+        if __name__ == '__main__':
+            return str(round(time.time() - start_time)), active_count
+            
+        elif messageQ:
             messageQ.put(self.iteration_count)        
             messageQ.put(round(time.time() - start_time, 2))
-            
-        self.iteration_count+=1
+        else:
+            return str(round(time.time() - start_time))
 
-    def is_number(self, s):
-        try:
-            float(s)
-            return True
-        except ValueError:
-            return False
-        
-    def save_data(self, prices):
+    def scrape_data(self, stock_list, startIndex):
+        for stock in range(len(stock_list)):
+            try:
+                loop_time = time.time()
+                #Get the page text and extract the price
+                text = urllib.request.urlopen(self.quote_url.format(stock_list[stock])).read().decode('UTF-8')
+                price_index = text.find(self.price_key)
+                price = text[price_index + len(self.price_key):text.find(",", price_index + len(self.price_key))]
+                price = price.replace(" ", '').replace('"', '')
+                
+                #print("{0}: {1}, {2}".format(stock_list[stock], price, round(time.time() - loop_time, 2)))
+                if self.is_number(price):
+                    #print("here")
+                    self.symbol_data[stock + startIndex] = [stock_list[stock], price, datetime.datetime.now().strftime("%m/%d/%Y %H:%M:%S")]
+                
+            except urllib.error.HTTPError:
+                #page doesn't exist
+                continue
+
+    def save_data(self):
         #Create file if it doesn't exist
         if not os.path.isfile(self.prices_links_path):
             open(self.prices_links_path, "w").close()
@@ -102,12 +138,15 @@ class stonks_scraper:
             #Step 1: See if company exists. If not, add at the end.
             #Step 2: Append data at the right spot in a row.
             #Step 3: Save data
-            for price in prices:
-                company = price[0]
-                cost = price[1]
-                time = price[2]
+            for symbol in range(len(self.symbol_data)):
 
+                company = self.symbol_data[symbol][0]
+                cost = self.symbol_data[symbol][1]
+                time = self.symbol_data[symbol][2]
+
+                
                 #Step 1
+                #See if company in data_contents, and if anything in data_contents
                 if len(data_contents) > 0:
                     if company not in data_contents[0]:
                         data_contents[0].extend([company, "",])
@@ -142,14 +181,47 @@ class stonks_scraper:
             file.truncate()
 
         return
+    
+    """
+    Helper functions section
+    """
+    #Split a list into n chunks
+    def splitList(self, unsplitList, chunk_size):
+        return [unsplitList[offs:offs+chunk_size] for offs in range(0, len(unsplitList), chunk_size)]
+
+    #Check if float is number
+    def is_number(self, s):
+        try:
+            float(s)
+            return True
+        except ValueError:
+            return False
+        
 
 #If running standalone
 if __name__ == '__main__':
     stonks = stonks_scraper()
     stonks.start()
+    stonks.get_prices()
+    print('done 1')
+    stonks.get_prices()
+    """
+    timings = []
+    for i in range(10, 110, 10):
+        print(i)
+        num_threads = i
+        stonks.num_threads = i
+        time_taken, active_count = stonks.get_prices()
+        timings.append([str(i), time_taken, active_count])
+        timings_path = str(stonks.rootDir) + "\\data\\timings.dat"
+        with open(timings_path, "w") as file:
+            for row in timings:
+                line = ",".join(row)
+                file.write(line + "\n")   
+                     
     count = 1
     while True:
         stonks.get_prices()
         print("Iteration %d done!\n\n" %(count))
         count+=1
-    
+    """ 

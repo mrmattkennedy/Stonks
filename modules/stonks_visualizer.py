@@ -13,7 +13,7 @@ class stonks_visualizer():
     def __init__(self):
         #Initialize vars
         self.rootDir = Path(sys.path[0]).parent
-        self.company_links_path = str(self.rootDir) + "\\data\\company_links.dat"
+        self.company_links_path = str(self.rootDir) + "\\data\\company_symbols.dat"
         self.prices_links_path = str(self.rootDir) + "\\data\\data.csv"
         self.company_prefix = "/stocks/"
         self.company_suffix = "-stock"
@@ -42,7 +42,7 @@ class stonks_visualizer():
         #Popup menu to select a stock
         self.tkvar = StringVar(self.mainframe)
         self.tkvar.trace('w', self.change_dropdown)
-        self.choices = [line[len(self.company_prefix):len(line)-len(self.company_suffix) - 1] for line in open(self.company_links_path, "r").readlines()]
+        self.choices = [line.strip() for line in open(self.company_links_path, "r").readlines()]
         self.popupMenu = OptionMenu(self.mainframe, self.tkvar, *self.choices)
         self.popupMenu.grid(row=0, column=1, sticky=E)
 
