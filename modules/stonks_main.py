@@ -138,6 +138,14 @@ class stonks_main:
 
                 #Having issues threading, try this.
                 self.run_analyzer()
+
+                """
+                self.update_log(self.scraperOutput, "Waiting for 100 seconds")
+                time_wait = 100
+                timer = time.time()
+                while time.time() - timer < time_wait and self.scraperRunning:
+                    time.sleep(0.2)
+                """
             else:
                 self.update_log(self.scraperOutput, "Blocking until scraper threads done")
                 self.blockingScraper = True

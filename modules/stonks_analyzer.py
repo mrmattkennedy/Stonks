@@ -44,7 +44,8 @@ class stonks_analyzer:
         self.growth_amount = 0.2
 
     #Check each company stock prices, see if any worth buying/selling
-    def check_stocks(self, messageQ=None):        
+    def check_stocks(self, messageQ=None):
+        self.update_data()
         self.sell_stocks(messageQ)
         self.buy_stocks(messageQ)
         
@@ -66,6 +67,11 @@ class stonks_analyzer:
         if total_value:
             return total_value
 
+    def update_data(self):
+        #Read in data
+        with open(self.prices_links_path, "r") as file:
+            data_reader = csv.reader(file, delimiter=',')
+            self.data_contents = [row for row in data_reader]
     """
     Algorithm for selling:
     Loop through each company in current stocks file.

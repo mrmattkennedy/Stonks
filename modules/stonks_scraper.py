@@ -6,15 +6,16 @@ import urllib.request
 import time
 import datetime
 import threading
+from bs4 import BeautifulSoup
 from lxml import html
 from pathlib import Path
 from lxml import etree
-from string import ascii_uppercase
 
 class stonks_scraper:
     def __init__(self):
         self.quote_url = "https://markets.businessinsider.com/stocks/{}-stock"
-        self.symbol_finder_url = 'http://eoddata.com/stocklist/NYSE/{}.htm'
+        self.symbol_finder_url = 'https://swingtradebot.com/equities?page={}'
+        self.symbol_lookup_end = 97 #last page is 96
         self.symbols = []
         self.symbol_data = []
         self.rootDir = Path(sys.path[0]).parent
@@ -38,31 +39,28 @@ class stonks_scraper:
     #Write symbols to file
     def update_companies_file(self):
         #Get a list of available companies
-        self.get_company_letter_links()
+        self.get_symbols()
         with open(self.company_links_path, "w") as file:
             for company in self.symbols:
                 file.write(company + "\n")
 
     #Get every symbol available   
-    def get_company_letter_links(self):
-        #Loop through every letter of alphabet
-        for letter in ascii_uppercase:
-            #Get page contents
-            page = requests.get(self.symbol_finder_url.format(letter))
-
-            #Get table element containing all the symbols for that letter
+    def get_symbols(self):
+        symbol_start = '<a href="/equities/'
+        symbol_end = '" title'
+        
+        #Loop through every page on symbol list
+        for i in range(1, self.symbol_lookup_end):
+            page = requests.get(self.quote_url.format(i))
             soup = BeautifulSoup(page.text, 'html.parser')
-            table = soup.find("table", {"class": "quotes"})
-            stocks = table.findAll("tr")
+            stocks = soup.findAll("tr")[1:]
 
-            token_start = 'onclick="location.href=' + "'/stockquote/NYSE/"
-            token_end = ".htm'"
+            for stock in stocks:
+                symbol = stock.find("a")
+                symbol = str(symbol)
+                symbol = symbol[len(symbol_start):symbol.find(symbol_end)]
+                self.symbols.append(symbol)
 
-            #Get all symbols for that letter
-            for stock in stocks[1:]:
-                str_stock = str(stock)
-                self.symbols.append(str_stock[str_stock.find(token_start) + len(token_start):
-                                         str_stock.find(token_end)])
     #Get the prices
     def get_prices(self, messageQ=None):
         #Save all threads to wait on join
@@ -88,7 +86,7 @@ class stonks_scraper:
         for quote in range(len(self.symbol_data) - 1, 0, -1):
             if self.symbol_data[quote] is None:
                 del self.symbol_data[quote]
-       
+                
         #Now save the data
         #save_thread = threading.Thread(target=self.save_data)
         #save_thread.start()
