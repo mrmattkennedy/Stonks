@@ -39,6 +39,7 @@ class stonks_analyzer:
         #Variables for trend/growth
         self.shrink_range = 1 #Go 1 back
         self.shrink_percent = 0
+        self.shrink_count = 2
         self.growth_range = 5
         self.growth_percent = 0.2
         self.growth_amount = 0.2
@@ -95,6 +96,9 @@ class stonks_analyzer:
                 #Check if there are any stocks in the row for the company. If not, break
                 if len(self.current_stocks[stock]) <= company:
                     break
+                if not self.current_stocks[stock][company]:
+                    continue
+                
                 #See if shrinked
                 if priceInfo[3] < self.shrink_percent:
                     #See how many times var has shrinked
@@ -102,8 +106,8 @@ class stonks_analyzer:
                     if shrinkCount:
                         shrinkCount = int(shrinkCount)
 
-                        #If it's less than 3, increment. If 3, sell.
-                        if shrinkCount < 3:
+                        #If it's less than self.shrink_count, increment. If self.shrink_count, sell.
+                        if shrinkCount < self.shrink_count:
                             shrinkCount+=1
                             self.current_stocks[stock][company+1] = str(shrinkCount)
                         else:
@@ -112,6 +116,14 @@ class stonks_analyzer:
                             print("Sold " + self.current_stocks[0][company] + " for " + str(self.get_last_price(company_index)))
                             self.current_stocks[stock][company] = ''
                             self.current_stocks[stock][company+1] = ''
+                    else:
+                        shrinkCount = self.current_stocks[stock][company+1]
+                        if shrinkCount:
+                            shrinkCount = int(shrinkCount)
+                            
+                            if shrinkCount > 0:
+                                shrinkCount-=1
+                            self.current_stocks[stock][company+1] = str(shrinkCount)
 
     """
     Buy stocks
@@ -131,7 +143,8 @@ class stonks_analyzer:
         for company in range(0, len(self.data_contents[0]), 2):
             priceInfo = self.stonks_sorter.get_price_diff(company, index=self.growth_range)
             self.increase_list.append([self.data_contents[0][company], priceInfo[0], priceInfo[1], priceInfo[2], priceInfo[3]])
-            
+
+        #print(self.increase_list[-5])
         self.increase_cash = sorted(self.increase_list, key = lambda x: x[3])
         self.increase_percent = sorted(self.increase_list, key = lambda x: x[4])
         self.buy_list = []
@@ -163,17 +176,23 @@ class stonks_analyzer:
                 except ValueError:
                     pass #means company not in list, index still -1
                 
-            first_row = self.get_first_row(company_index)
+            error_code, first_row = self.get_first_row(company_index)
 
-            if first_row == -2: #No current stocks at all
+            #print(error_code, first_row)
+            if error_code == -2: #No current stocks at all
                 self.current_stocks.append([company[0]])
                 self.current_stocks[0].append('')
                 self.current_stocks.append([str(price), "0"])
-            elif first_row == -1: #Company not in the stock spreadsheet
+            elif error_code == -1: #Company not in the stock spreadsheet
                 self.current_stocks[0].append(company[0])
                 self.current_stocks[0].append('')
                 self.current_stocks[first_row].append(str(price))
                 self.current_stocks[first_row].append("0")
+            elif error_code == -3: #Row doesn't reach as far as company
+                length = len(self.current_stocks[0])
+                self.current_stocks[first_row].extend([''] * (length - len(self.current_stocks[first_row])))
+                self.current_stocks[first_row][company_index] = str(price)
+                self.current_stocks[first_row][company_index+1] = "0"
             else:
                 if first_row == len(self.current_stocks):
                     self.current_stocks.append(['']*len(self.current_stocks[0]))
@@ -254,27 +273,32 @@ class stonks_analyzer:
     def get_first_row(self, company_index):
         try:
             if len(self.current_stocks) == 0:
-                return -2
+                return -2, 1
 
             #company not in list
             if company_index == -1:
-                return -1
+                return -1, 1
 
             first_row = 1
             filled_row = True
-        
-            #Work forwards starting at column
+
+            
+                #Work forwards starting at column
             while filled_row:
-                if first_row == len(self.current_stocks):
-                    break
-                elif self.current_stocks[first_row][company_index]:
-                    first_row+=1
-                    continue
-                
-                filled_row = False
-                
+                try:
+                    if first_row == len(self.current_stocks):
+                        break
+                    elif self.current_stocks[first_row][company_index]:
+                        first_row+=1
+                        continue
+                    
+                    filled_row = False
+                except IndexError:
+                    #The specific row doesn't reach as far as the company index.
+                    return -3, first_row
+            
             #Get the prices starting at the last recorded price value
-            return first_row
+            return 0, first_row
         except:
             extype, value, tb = sys.exc_info()
             traceback.print_exc()
