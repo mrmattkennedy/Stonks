@@ -14,6 +14,7 @@ class stonks_analyzer:
         self.company_links_path = str(self.rootDir) + "\\data\\company_symbols.dat"
         self.prices_links_path = str(self.rootDir) + "\\data\\data.csv"
         self.current_stocks_path = str(self.rootDir) + "\\data\\current_stocks.csv"
+        self.value_over_time_path = str(self.rootDir) + "\\data\\value_over_time.csv"
         self.cash_path = str(self.rootDir) + "\\data\\cash.dat"
 
         #Get pricing data
@@ -35,6 +36,7 @@ class stonks_analyzer:
         self.companies = [line.rstrip('\n') for line in open(self.company_links_path, 'r')]
         self.cash = float([line.rstrip('\n') for line in open(self.cash_path, 'r')][0])
         self.cash_spent = 3000
+        self.current_values = []
         
         #Variables for trend/growth
         self.shrink_range = 1 #Go 1 back
@@ -49,24 +51,25 @@ class stonks_analyzer:
         self.update_data()
         self.sell_stocks(messageQ)
         self.buy_stocks(messageQ)
-        
+
+        #Save current stocks
         with open(self.current_stocks_path, "r+") as file:
             file.seek(0)
             for row in self.current_stocks:
                 line = ",".join(row)
                 file.write(line + "\n")                    
             file.truncate()
-
         
+        #Save current cash
         with open(self.cash_path, "r+") as file:
             file.seek(0)
             file.write(str(self.cash))                    
             file.truncate()
         
         #If threading, messageQ will hold something. If not called on thread, just return value.
-        total_value = self.get_total_value(messageQ)
-        if total_value:
-            return total_value
+        total_value, actual_value = self.get_total_value(messageQ)
+        if not messageQ:
+            return total_value, actual_value
 
     def update_data(self):
         #Read in data
@@ -93,9 +96,9 @@ class stonks_analyzer:
 
             #Loop through each row with row var as stock
             for stock in range(1, len(self.current_stocks)):
-                #Check if there are any stocks in the row for the company. If not, break
+                #Check if there are any stocks in the row. If not, continue.
                 if len(self.current_stocks[stock]) <= company:
-                    break
+                    continue
                 if not self.current_stocks[stock][company]:
                     continue
                 
@@ -208,16 +211,66 @@ class stonks_analyzer:
     """
     def get_total_value(self, messageQ):
         total_value = self.cash
+        self.current_values = []
+
+        #Get the total value from the spreadsheet
         for row in self.current_stocks[1:]:
             for value in row[::2]:
                 if value:
                     total_value += float(value)
-        
+                    
+        #Look at each stock for each company
+        for company in range(0, len(self.current_stocks[0]), 2):            
+            company_index = self.data_contents[0].index(self.current_stocks[0][company])
+            
+            #Loop through each row with row var as stock
+            for stock in range(1, len(self.current_stocks)):
+                #Check if there are any stocks in the row for the company. If not, break
+                if len(self.current_stocks[stock]) <= company:
+                    break
+                if not self.current_stocks[stock][company]:
+                    continue
+
+                name = self.current_stocks[0][company]
+                bought_price = self.current_stocks[stock][company]
+                current_price = self.get_last_price(company_index)
+                diff = round(float(bought_price) - float(current_price), 2)
+                self.current_values.append([name, bought_price, current_price, diff])
+
+        #Add up the actual values
+        actual_value = 0
+        for stock in self.current_values:
+            actual_value += stock[2]
+
+        #Record values
+        self.record_value(total_value, actual_value)
         if not messageQ:
-            return total_value
+            return total_value, actual_value
         else:
             messageQ.put(total_value)
+            messageQ.put(actual_value)
 
+
+    def record_value(self, total_value, actual_value):
+        #See if file exists
+        if not os.path.isfile(self.value_over_time_path):
+            open(self.value_over_time_path, "w").close()
+            
+        #Read in data
+        with open(self.value_over_time_path, "r+") as file:
+            data_reader = csv.reader(file, delimiter=',')
+            prior_values = [row for row in data_reader]
+            prior_values.append([str(round(total_value, 2)),
+                                 str(round(actual_value, 2)),
+                                 str(round(actual_value - total_value, 2)),
+                                 datetime.datetime.now().strftime("%m/%d/%Y %H:%M:%S")])
+            
+            #Save contents
+            file.seek(0)
+            for row in prior_values:
+                line = ",".join(row)
+                file.write(line + "\n")                    
+            file.truncate()
     """
     Helper function
     See if should buy stock

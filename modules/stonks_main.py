@@ -30,13 +30,11 @@ class stonks_main:
         #Frame for scraper
         self.scraperFrame = Frame(self.gui, borderwidth=2, relief="ridge")
         self.scraperFrame.grid(row=0, column=0, sticky=(N,W,E))
-       # for col in range(self.total_cols):
-        #    self.scraperFrame.grid_columnconfigure(col, weight=1, uniform="wide")
         
         #Scraper widgets
         temp = Label(self.scraperFrame, text="Scraper output")
         temp.grid(row=0, column=0, sticky=(N,W))
-        self.scraperOutput = tkst.ScrolledText(self.scraperFrame, width=40, height=3, state='disabled')
+        self.scraperOutput = tkst.ScrolledText(self.scraperFrame, width=60, height=5, state='disabled')
         self.scraperOutput.grid(row=1, column=0, rowspan=2, columnspan=3, sticky=(S,E,W))
         self.scraperRunning = False
         self.blockingScraper = False
@@ -45,13 +43,11 @@ class stonks_main:
         #Frame for analyzer
         self.analyzerFrame = Frame(self.gui, borderwidth=2, relief="ridge")
         self.analyzerFrame.grid(row=1, column=0, sticky=(W,E))
-        #for col in range(self.total_cols):
-         #   self.analyzerFrame.grid_columnconfigure(col, weight=1, uniform="wide")
-            
+                
         #Analyzer widgets
         temp = Label(self.analyzerFrame, text="Analyzer output")
         temp.grid(row=0, column=0, sticky=(N,W))
-        self.analyzerOutput = tkst.ScrolledText(self.analyzerFrame, width=40, height=3, state='disabled')
+        self.analyzerOutput = tkst.ScrolledText(self.analyzerFrame, width=60, height=5, state='disabled')
         self.analyzerOutput.grid(row=1, column=0, rowspan=2, columnspan=3, sticky=(S,E,W))
 
         #Frame for buttons
@@ -132,6 +128,7 @@ class stonks_main:
             if self.scraperRunning:
                 self.update_log(self.scraperOutput, "Iteration " + str(self.messageQ.get()) + " done")
                 self.update_log(self.scraperOutput, "Took " + str(self.messageQ.get()) + " seconds")
+                self.update_log(self.scraperOutput, "", addTimeStamp=False)
                 
                 #self.start_analyzer_thread = threading.Thread(target=self.run_analyzer)
                 #self.start_analyzer_thread.start()
@@ -139,13 +136,6 @@ class stonks_main:
                 #Having issues threading, try this.
                 self.run_analyzer()
 
-                """
-                self.update_log(self.scraperOutput, "Waiting for 100 seconds")
-                time_wait = 100
-                timer = time.time()
-                while time.time() - timer < time_wait and self.scraperRunning:
-                    time.sleep(0.2)
-                """
             else:
                 self.update_log(self.scraperOutput, "Blocking until scraper threads done")
                 self.blockingScraper = True
@@ -165,9 +155,12 @@ class stonks_main:
         if self.scraperRunning:
             self.update_log(self.analyzerOutput, "Total value is " + str(self.messageQ.get()))
         """
-        total_value = self.analyzer.check_stocks()
+        total_value, actual_value = self.analyzer.check_stocks()
         if self.scraperRunning:
             self.update_log(self.analyzerOutput, "Total value is " + str(round(float(total_value), 2)))
+            self.update_log(self.analyzerOutput, "Actual value is " + str(round(float(actual_value), 2)))
+            self.update_log(self.analyzerOutput, "Diff is " + str(round(float(actual_value) - float(total_value), 2)))
+            self.update_log(self.analyzerOutput, "", addTimeStamp=False)
             
     """
     Visualizer section.
@@ -182,13 +175,17 @@ class stonks_main:
 
 
     #Updates the given widget (log) with the given text
-    def update_log(self, widget, text):
-        if self.running:
+    def update_log(self, widget, text, addTimeStamp=True):
+        if self.running and addTimeStamp:
             widget.configure(state='normal')
             widget.insert("end", text + " @ " + datetime.datetime.now().time().strftime("%H:%M:%S") + "\n")
             widget.see(END)
             widget.configure(state='disabled')
-        
+        elif self.running:
+            widget.configure(state='normal')
+            widget.insert("end", text + "\n")
+            widget.see(END)
+            widget.configure(state='disabled')
 
     def exit_handler(self):
         self.scraperRunning = False
