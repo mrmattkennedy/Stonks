@@ -98,7 +98,7 @@ class stonks_sorter():
             starting_row = last_row
             ending_row = last_row - index if last_row - index >= 1 else 1
             starting_price = self.data_contents[ending_row][company]
-
+            
         #Get the price difference and append it
         if starting_price == -1:
             starting_price = ending_price

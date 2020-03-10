@@ -129,9 +129,6 @@ class stonks_main:
                 self.update_log(self.scraperOutput, "Iteration " + str(self.messageQ.get()) + " done")
                 self.update_log(self.scraperOutput, "Took " + str(self.messageQ.get()) + " seconds")
                 self.update_log(self.scraperOutput, "", addTimeStamp=False)
-                
-                #self.start_analyzer_thread = threading.Thread(target=self.run_analyzer)
-                #self.start_analyzer_thread.start()
 
                 #Having issues threading, try this.
                 self.run_analyzer()
@@ -145,16 +142,7 @@ class stonks_main:
                 self.update_log(self.scraperOutput, "Done blocking")
                 
     def run_analyzer(self):
-        """
-        self.analyzer_thread = threading.Thread(target=self.analyzer.check_stocks, args=(self.messageQ,))
-        self.analyzer_thread.start()
-
-        while self.messageQ.empty() and self.scraperRunning:
-            time.sleep(0.1)
-        
-        if self.scraperRunning:
-            self.update_log(self.analyzerOutput, "Total value is " + str(self.messageQ.get()))
-        """
+        self.analyzer = stonks_analyzer.stonks_analyzer()
         total_value, actual_value = self.analyzer.check_stocks()
         if self.scraperRunning:
             self.update_log(self.analyzerOutput, "Total value is " + str(round(float(total_value), 2)))

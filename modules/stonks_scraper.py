@@ -23,6 +23,7 @@ class stonks_scraper:
         self.prices_links_path = str(self.rootDir) + "\\data\\data.csv"
 
         self.num_threads = 50
+        self.max_data = 200
         self.price_key = '"price":'
         self.iteration_count = 0
 
@@ -90,8 +91,7 @@ class stonks_scraper:
         #Now save the data
         #save_thread = threading.Thread(target=self.save_data)
         #save_thread.start()
-        
-        #Saving on a thread causes race condition for symbol_data, messes up.
+        #Saving on a thread causes race condition for symbol_data
         self.save_data()
         self.iteration_count+=1
         
@@ -166,18 +166,29 @@ class stonks_scraper:
                         empty_row += 1
                         column_data = data_contents[empty_row][company_index]
                 except IndexError:
-                    data_contents.append(["" for column in data_contents[0]])
-                    
-                data_contents[empty_row][company_index] += str(cost)
-                data_contents[empty_row][company_index+1] += str(time)
+                    if empty_row < self.max_data:
+                        data_contents.append(["" for column in data_contents[0]])
+                
+                if empty_row >= self.max_data:
+                    #Move everything down a row
+                    for row in range(1, len(data_contents[1:-1])+1):
+                        data_contents[row][company_index] = data_contents[row+1][company_index]
+                        data_contents[row][company_index+1] = data_contents[row+1][company_index+1]
+                    #Set the empty row back one and make that row empty
+                    empty_row -= 1
+                    data_contents[empty_row][company_index] = ''
+                    data_contents[empty_row][company_index+1] = ''
 
+                #Fill the data in
+                data_contents[empty_row][company_index] = str(cost)
+                data_contents[empty_row][company_index+1] = str(time)
+   
             #Step 3
             file.seek(0)
             for row in data_contents:
                 line = ",".join(row)
                 file.write(line + "\n")                    
             file.truncate()
-
         return
     
     """
@@ -200,9 +211,11 @@ class stonks_scraper:
 if __name__ == '__main__':
     stonks = stonks_scraper()
     stonks.start()
-    stonks.get_prices()
-    print('done 1')
-    stonks.get_prices()
+    for _ in range(0, 10):
+        stonks.get_prices()
+    #print('done 1')
+    #stonks.get_prices()
+
     """
     timings = []
     for i in range(10, 110, 10):
@@ -216,10 +229,4 @@ if __name__ == '__main__':
             for row in timings:
                 line = ",".join(row)
                 file.write(line + "\n")   
-                     
-    count = 1
-    while True:
-        stonks.get_prices()
-        print("Iteration %d done!\n\n" %(count))
-        count+=1
-    """ 
+     """

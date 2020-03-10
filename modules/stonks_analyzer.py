@@ -52,6 +52,7 @@ class stonks_analyzer:
         self.sell_stocks(messageQ)
         self.buy_stocks(messageQ)
 
+        
         #Save current stocks
         with open(self.current_stocks_path, "r+") as file:
             file.seek(0)
@@ -76,6 +77,11 @@ class stonks_analyzer:
         with open(self.prices_links_path, "r") as file:
             data_reader = csv.reader(file, delimiter=',')
             self.data_contents = [row for row in data_reader]
+
+        #Read in stocks
+        with open(self.current_stocks_path, "r") as file:
+            data_reader = csv.reader(file, delimiter=',')
+            self.current_stocks = [row for row in data_reader]
     """
     Algorithm for selling:
     Loop through each company in current stocks file.
@@ -88,14 +94,19 @@ class stonks_analyzer:
         #If there are no current stocks, just return.
         if len(self.current_stocks) == 0:
             return
-        
+
+        #for row in self.current_stocks:
+        #    print(row)
+        #print(len(self.current_stocks[0]))
         #For each stock, get the company, find the data in data_contents, see the trend, act
-        for company in range(0, len(self.current_stocks[0]), 2):            
+        for company in range(0, len(self.current_stocks[0]), 2):
+            #print("company "+ str(company))
             company_index = self.data_contents[0].index(self.current_stocks[0][company])
             priceInfo = self.stonks_sorter.get_price_diff(company_index, index=self.shrink_range)
-
+            
             #Loop through each row with row var as stock
             for stock in range(1, len(self.current_stocks)):
+                
                 #Check if there are any stocks in the row. If not, continue.
                 if len(self.current_stocks[stock]) <= company:
                     continue
@@ -116,18 +127,17 @@ class stonks_analyzer:
                         else:
                             company_index = self.data_contents[0].index(self.current_stocks[0][company])
                             self.cash += self.get_last_price(company_index)
-                            print("Sold " + self.current_stocks[0][company] + " for " + str(self.get_last_price(company_index)))
+                            print("Sold " + self.current_stocks[0][company] + " for " + str(self.get_last_price(company_index)) + ", bought for " + str(self.current_stocks[stock][company]) + ", cash is " + str(round(self.cash, 2)) + " @ " + datetime.datetime.now().time().strftime("%H:%M:%S"))
                             self.current_stocks[stock][company] = ''
                             self.current_stocks[stock][company+1] = ''
-                    else:
-                        shrinkCount = self.current_stocks[stock][company+1]
-                        if shrinkCount:
-                            shrinkCount = int(shrinkCount)
-                            
-                            if shrinkCount > 0:
-                                shrinkCount-=1
-                            self.current_stocks[stock][company+1] = str(shrinkCount)
-
+                else:
+                    shrinkCount = self.current_stocks[stock][company+1]
+                    if shrinkCount:
+                        shrinkCount = int(shrinkCount)
+                        
+                        if shrinkCount > 0:
+                            shrinkCount-=1
+                        self.current_stocks[stock][company+1] = str(shrinkCount)
     """
     Buy stocks
     Currently checks growth over last 5 prices, see if growing, buy
@@ -180,7 +190,7 @@ class stonks_analyzer:
                     pass #means company not in list, index still -1
                 
             error_code, first_row = self.get_first_row(company_index)
-
+            print("Bought " + company[0] + " for " + str(price) + ", cash is " + str(round(self.cash, 2)) + " @ " + datetime.datetime.now().time().strftime("%H:%M:%S"))
             #print(error_code, first_row)
             if error_code == -2: #No current stocks at all
                 self.current_stocks.append([company[0]])
@@ -285,11 +295,16 @@ class stonks_analyzer:
                 return -1
 
         #Get the index in data contents
+        company_name = ""
+        
         if variable == "$":
             data_contents_index = self.data_contents[0].index(self.increase_cash[company][0])
+            company_name = self.increase_cash[company][0]    
         elif variable == "%":
             data_contents_index = self.data_contents[0].index(self.increase_percent[company][0])
-
+            company_name = self.increase_percent[company][0]
+        data_contents_name = self.data_contents[0][data_contents_index]
+        
         #See if have the money to buy
         price = self.get_last_price(data_contents_index)
         if self.cash < price:
@@ -297,6 +312,7 @@ class stonks_analyzer:
 
         #If company not already in list, buy
         if not any(self.increase_cash[company][0] in company_info for company_info in self.buy_list):
+            print("Price is " + str(price) + ", company is " + company_name + ", data cont name: " + data_contents_name)
             self.cash -= price
             return 1
         return 0
